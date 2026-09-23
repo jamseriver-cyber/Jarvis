@@ -10,7 +10,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 echo [Jarvis] 正在启动本地语音助手...
-".venv\Scripts\python.exe" main.py
+".venv\Scripts\python.exe" -u main.py
 
 if errorlevel 1 (
     echo.
