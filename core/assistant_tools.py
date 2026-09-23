@@ -32,6 +32,14 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "hide_hud",
+            "description": "只收起 Jarvis 界面，不退出程序；继续在后台聆听唤醒词和触发提醒。",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "open_application",
             "description": "打开 Windows 中已安装的应用程序。",
             "parameters": {
@@ -243,6 +251,10 @@ class AssistantTools:
             return ToolResult(True, f"已打开{display_name}。", {"shortcut": str(shortcut)})
         except OSError as exc:
             return ToolResult(False, f"无法打开{display_name}：{exc}")
+
+    @staticmethod
+    def hide_hud():
+        return ToolResult(True, "界面已收起，我仍在后台待命。")
 
     def open_calendar(self):
         try:
@@ -465,6 +477,7 @@ class AssistantTools:
     def execute(self, name: str, arguments: dict | None = None):
         arguments = arguments or {}
         handlers = {
+            "hide_hud": self.hide_hud,
             "open_application": lambda: self.open_application(str(arguments.get("name", ""))),
             "open_calendar": self.open_calendar,
             "search_web": lambda: self.search_web(str(arguments.get("query", ""))),
@@ -491,6 +504,13 @@ class AssistantTools:
     def direct_route(self, text: str):
         clean = re.sub(r"^(贾维斯|jarvis)[，,\s]*", "", text.strip(), flags=re.I)
         lower = clean.lower()
+
+        if re.fullmatch(
+            r"(?:关闭|隐藏|收起)(?:一下)?\s*(?:你自己|贾维斯|jarvis|界面|窗口|面板|hud)?\s*(?:吧|了)?[。.!！\s]*",
+            clean,
+            flags=re.I,
+        ):
+            return "hide_hud", {}
 
         if "英超" in clean and any(word in clean for word in ("比分", "赛果", "比赛", "赛程")):
             offset = -1 if "昨天" in clean else 1 if "明天" in clean else 0

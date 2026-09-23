@@ -17,10 +17,11 @@ import keyboard
 import psutil
 import shiboken6
 from PySide6.QtCore import QObject, QLocale, QThread, QTimer, Qt, Signal, Slot
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow
 from PySide6.QtTextToSpeech import QTextToSpeech
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from core.assistant_tools import AssistantTools
 from core.memory_store import MemoryStore
@@ -31,6 +32,8 @@ from voice.wake_listener import WakeListener
 
 class JarvisBridge(QObject):
     toggleHud = Signal()
+    showHudRequested = Signal()
+    hideHudRequested = Signal()
     wakeDetected = Signal(str, arguments=["keyword"])
     listeningStarted = Signal()
     transcribingStarted = Signal()
@@ -253,7 +256,7 @@ class JarvisController(QObject):
         keyboard.add_hotkey("f9", self._manual_activate, suppress=False)
         print(
             "[Jarvis] AI 助理已启动。说“贾维斯”或按 F9 开始，"
-            "F8 切换 HUD；提醒与本地记忆已启用。"
+            "F8 显示/隐藏 HUD；最小化后仍会聆听并触发提醒。"
         )
 
     @Slot(str)
@@ -506,11 +509,28 @@ def parse_args():
     return parser.parse_args()
 
 
+def make_tray_icon():
+    pixmap = QPixmap(64, 64)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setBrush(QColor("#0A1722"))
+    painter.setPen(QPen(QColor("#38E8FF"), 3))
+    painter.drawEllipse(3, 3, 58, 58)
+    painter.setPen(QColor("#E7FBFF"))
+    painter.setFont(QFont("Bahnschrift", 27, QFont.Weight.Bold))
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "J")
+    painter.end()
+    return QIcon(pixmap)
+
+
 def main():
     args = parse_args()
-    app = QGuiApplication(sys.argv)
+    app = QApplication(sys.argv)
     app.setApplicationName("Personal Jarvis")
     app.setOrganizationName("Personal AI Systems")
+    if not (args.preview or args.screenshot):
+        app.setQuitOnLastWindowClosed(False)
 
     engine = QQmlApplicationEngine()
     bridge = JarvisBridge()
@@ -533,7 +553,30 @@ def main():
         root_window.setFlag(Qt.WindowType.WindowDoesNotAcceptFocus, True)
 
     controller = None
+    tray = None
     if not (args.preview or args.screenshot):
+        if QSystemTrayIcon.isSystemTrayAvailable():
+            tray = QSystemTrayIcon(make_tray_icon(), app)
+            tray.setToolTip("Jarvis 正在后台聆听 · F8 显示/隐藏")
+            tray_menu = QMenu()
+            show_action = tray_menu.addAction("显示 Jarvis")
+            hide_action = tray_menu.addAction("隐藏 Jarvis（继续聆听）")
+            tray_menu.addSeparator()
+            quit_action = tray_menu.addAction("退出 Jarvis")
+            show_action.triggered.connect(lambda checked=False: bridge.showHudRequested.emit())
+            hide_action.triggered.connect(lambda checked=False: bridge.hideHudRequested.emit())
+            quit_action.triggered.connect(lambda checked=False: app.quit())
+            tray.setContextMenu(tray_menu)
+
+            def on_tray_activated(reason):
+                if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+                    bridge.toggleHud.emit()
+
+            tray.activated.connect(on_tray_activated)
+            tray.show()
+        else:
+            print("[Jarvis] 当前系统未提供托盘；仍可用 F8 显示或隐藏界面。")
+
         controller = JarvisController(bridge)
         controller.start()
         app.aboutToQuit.connect(controller.cleanup)

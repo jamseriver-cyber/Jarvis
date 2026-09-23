@@ -63,8 +63,8 @@ Window {
     height: jarvisPreview ? 900 : Screen.height
     minimumWidth: 1180
     minimumHeight: 700
-    visible: true
-    visibility: jarvisPreview ? Window.Windowed : Window.FullScreen
+    visible: jarvisPreview
+    visibility: jarvisPreview ? Window.Windowed : Window.Hidden
     color: "transparent"
     flags: jarvisPreview
            ? Qt.FramelessWindowHint
@@ -285,19 +285,41 @@ Window {
         onTriggered: root.wavePhase += 0.22
     }
 
+    Timer {
+        id: idleHide
+        repeat: false
+        onTriggered: root.hideHud()
+    }
+
+    function scheduleHide(delayMs) {
+        if (!jarvisPreview && root.visible) {
+            idleHide.interval = delayMs
+            idleHide.restart()
+        }
+    }
+
     function showHud() {
+        idleHide.stop()
         fadeOut.stop()
+        if (!jarvisPreview && !root.visible) root.showFullScreen()
         hud.visible = true
         fadeIn.restart()
     }
 
     function hideHud() {
+        if (jarvisPreview) return
+        idleHide.stop()
         fadeIn.stop()
-        fadeOut.restart()
+        if (root.visible && hud.visible) fadeOut.restart()
+        else {
+            hud.visible = false
+            hud.opacity = 0
+            root.hide()
+        }
     }
 
     function toggleHud() {
-        if (hud.visible) hideHud()
+        if (root.visible && hud.visible) hideHud()
         else showHud()
     }
 
@@ -527,6 +549,7 @@ Window {
             onTriggered: {
                 reminderAlert.opacity = 0
                 if (root.jarvisState === "REMINDER") root.jarvisState = "READY"
+                root.scheduleHide(3000)
             }
         }
 
@@ -1189,6 +1212,7 @@ Window {
         onFinished: {
             hud.visible = false
             hud.opacity = 0
+            if (!jarvisPreview) root.hide()
         }
     }
 
@@ -1196,6 +1220,8 @@ Window {
         target: jarvisBridge
 
         function onToggleHud() { root.toggleHud() }
+        function onShowHudRequested() { root.showHud() }
+        function onHideHudRequested() { root.hideHud() }
 
         function onWakeDetected(keyword) {
             root.showHud()
@@ -1226,6 +1252,7 @@ Window {
             root.jarvisState = "READY"
             root.userText = "未检测到有效语音，请重新唤醒。"
             root.jarvisText = "没有听清，请再说一次。"
+            root.scheduleHide(3000)
         }
 
         function onLlmStarted() {
@@ -1250,13 +1277,18 @@ Window {
         function onLlmError(message) {
             root.jarvisText = "AI 核心连接失败。\n" + message
             root.jarvisState = "ERROR"
+            root.scheduleHide(12000)
         }
 
         function onTtsStarted() { root.jarvisState = "SPEAKING" }
-        function onTtsFinished() { root.jarvisState = "READY" }
+        function onTtsFinished() {
+            root.jarvisState = "READY"
+            root.scheduleHide(4500)
+        }
         function onTtsError(message) {
             root.jarvisState = "READY"
             console.log("TTS error:", message)
+            root.scheduleHide(4500)
         }
 
         function onAudioLevelChanged(level) { root.audioLevel = level }
@@ -1276,10 +1308,22 @@ Window {
             root.jarvisText = "正在执行：" + tool + "…"
             root.lastToolText = tool + "  RUNNING"
             root.lastToolSuccess = true
+            if (tool === "open_application" || tool === "open_calendar"
+                    || tool === "search_web" || tool === "open_browser") {
+                root.hideHud()
+            }
         }
         function onToolFinished(tool, success, message) {
             root.lastToolText = tool + "  " + (success ? "DONE" : "FAILED")
             root.lastToolSuccess = success
+            if (success && (tool === "hide_hud" || tool === "open_application"
+                            || tool === "open_calendar" || tool === "search_web"
+                            || tool === "open_browser")) {
+                root.hideHud()
+            } else if (!success && (tool === "open_application" || tool === "open_calendar"
+                                    || tool === "search_web" || tool === "open_browser")) {
+                root.showHud()
+            }
         }
         function onActivityChanged(app, title) {
             root.currentActivityApp = app

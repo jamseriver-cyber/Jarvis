@@ -69,6 +69,19 @@ class AssistantToolsTests(unittest.TestCase):
             self.assertFalse(tools.execute("run_shell", {"command": "whoami"}).success)
             self.assertEqual(tools.direct_route("打开日历"), ("open_calendar", {}))
 
+    def test_hide_command_only_targets_jarvis_hud(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            with patch.object(AssistantTools, "_discover_shortcuts", return_value=[]):
+                tools = AssistantTools(Path(temporary), MemoryStore(Path(temporary)))
+            for command in ("关闭", "贾维斯，隐藏界面", "收起 Jarvis"):
+                with self.subTest(command=command):
+                    self.assertEqual(tools.direct_route(command), ("hide_hud", {}))
+            self.assertEqual(
+                tools.direct_route("关闭 VS Code"), None,
+                "closing another app must not hide Jarvis by mistake",
+            )
+            self.assertTrue(tools.execute("hide_hud", {}).success)
+
 
 class ModelInstallerTests(unittest.TestCase):
     def test_modified_archive_is_rejected(self):
