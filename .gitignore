@@ -1,0 +1,36 @@
+# Local Python/runtime files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+
+# Private assistant state and recordings
+data/
+*.db
+*.db-shm
+*.db-wal
+voice/*.wav
+*.log
+.env
+.env.*
+
+# Downloaded third-party models; the setup script fetches these from upstream
+/models/**
+!/models/kws/
+!/models/kws/keywords.txt
+!/models/kws/keywords_raw.txt
+
+# Local test media and working copies
+assets/sounds/edge_test.mp3
+assets/sounds/jarvis_yunxi.mp3
+assets/sounds/wake_ack.mp3
+.codex-backup-*/
+build/
+dist/
+*.spec
+.idea/
+.vscode/
+Thumbs.db

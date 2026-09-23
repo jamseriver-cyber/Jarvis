@@ -1,0 +1,8 @@
+PySide6==6.11.2
+keyboard==0.13.5
+psutil==7.2.2
+ollama==0.6.2
+numpy==2.5.2
+sounddevice==0.5.6
+faster-whisper==1.2.1
+sherpa-onnx==1.13.6
