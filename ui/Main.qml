@@ -414,7 +414,7 @@ Window {
                         font.letterSpacing: 4
                     }
                     Text {
-                        text: "PERSONAL NEURAL INTERFACE  /  BUILD 2.1"
+                        text: "PERSONAL NEURAL INTERFACE  /  V0.2.0"
                         color: "#758FAAB7"
                         font.family: "Consolas"
                         font.pixelSize: 9

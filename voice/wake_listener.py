@@ -5,6 +5,7 @@ import sounddevice as sd
 import sherpa_onnx
 
 from PySide6.QtCore import QThread, Signal
+from runtime_paths import keywords_file, wake_model_dir
 
 
 class WakeListener(QThread):
@@ -16,29 +17,10 @@ class WakeListener(QThread):
 
         super().__init__(parent)
 
-        self.root = Path(__file__).resolve().parent.parent
+        self.model_dir = wake_model_dir()
 
 
-        self.model_dir = (
-            self.root
-            /
-            "models"
-            /
-            "kws"
-            /
-            "sherpa-onnx-kws-zipformer-zh-en-3M-2025-12-20"
-        )
-
-
-        self.keywords_file = (
-            self.root
-            /
-            "models"
-            /
-            "kws"
-            /
-            "keywords.txt"
-        )
+        self.keywords_file = keywords_file()
 
 
         self.enabled = True

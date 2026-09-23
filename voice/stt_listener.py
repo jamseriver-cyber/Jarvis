@@ -12,6 +12,7 @@ import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
 from PySide6.QtCore import QThread, Signal
+from runtime_paths import user_root
 
 
 class SttListener(QThread):
@@ -27,7 +28,7 @@ class SttListener(QThread):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.root = Path(__file__).resolve().parent.parent
+        self.root = user_root()
         self.temp_audio = self.root / "voice" / "current_input.wav"
         self.sample_rate = 16000
         self.block_duration = 0.1

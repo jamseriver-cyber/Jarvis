@@ -26,6 +26,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from core.assistant_tools import AssistantTools
 from core.memory_store import MemoryStore
 from llm.ollama_worker import OllamaWorker
+from runtime_paths import resource_root, user_root, wake_model_ready
 from voice.stt_listener import SttListener
 from voice.wake_listener import WakeListener
 
@@ -195,7 +196,7 @@ class JarvisController(QObject):
     def __init__(self, bridge: JarvisBridge, parent=None):
         super().__init__(parent)
         self.bridge = bridge
-        self.root = Path(__file__).resolve().parent
+        self.root = user_root()
         self.memory = MemoryStore(self.root)
         self.tools = AssistantTools(self.root, self.memory)
         self.wake_listener = WakeListener()
@@ -243,7 +244,10 @@ class JarvisController(QObject):
     def start(self):
         self.monitor.start()
         self.activity_tracker.start()
-        self.wake_listener.start()
+        if wake_model_ready():
+            self.wake_listener.start()
+        else:
+            print("[Jarvis] 唤醒模型尚未安装；可按 F9 对话，或运行首次设置。")
         self.reminder_timer.start()
         self.context_timer.start()
         self._refresh_next_reminder()
@@ -506,6 +510,11 @@ def parse_args():
         type=Path,
         help="预览模式下保存界面截图并退出",
     )
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="重新打开首次运行设置",
+    )
     return parser.parse_args()
 
 
@@ -531,6 +540,11 @@ def main():
     app.setOrganizationName("Personal AI Systems")
     if not (args.preview or args.screenshot):
         app.setQuitOnLastWindowClosed(False)
+        from setup_wizard import SetupDialog, setup_completed
+
+        if args.setup or (getattr(sys, "frozen", False) and not setup_completed()):
+            if SetupDialog().exec() != SetupDialog.DialogCode.Accepted:
+                return 1
 
     engine = QQmlApplicationEngine()
     bridge = JarvisBridge()
@@ -539,7 +553,7 @@ def main():
         "jarvisPreview", bool(args.preview or args.screenshot)
     )
 
-    qml_file = Path(__file__).resolve().parent / "ui" / "Main.qml"
+    qml_file = resource_root() / "ui" / "Main.qml"
     engine.load(qml_file)
     if not engine.rootObjects():
         print("[ERROR] QML 加载失败")
@@ -562,9 +576,16 @@ def main():
             show_action = tray_menu.addAction("显示 Jarvis")
             hide_action = tray_menu.addAction("隐藏 Jarvis（继续聆听）")
             tray_menu.addSeparator()
+            setup_action = tray_menu.addAction("设置 / 环境检查")
             quit_action = tray_menu.addAction("退出 Jarvis")
             show_action.triggered.connect(lambda checked=False: bridge.showHudRequested.emit())
             hide_action.triggered.connect(lambda checked=False: bridge.hideHudRequested.emit())
+            def open_setup(checked=False):
+                if SetupDialog().exec() == SetupDialog.DialogCode.Accepted:
+                    if not controller.wake_listener.isRunning() and wake_model_ready():
+                        controller.wake_listener.start()
+
+            setup_action.triggered.connect(open_setup)
             quit_action.triggered.connect(lambda checked=False: app.quit())
             tray.setContextMenu(tray_menu)
 

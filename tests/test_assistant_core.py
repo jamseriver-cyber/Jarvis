@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 from core.assistant_tools import AssistantTools
 from core.memory_store import MemoryStore
-from scripts.install_kws_model import verify_archive
+from scripts.install_kws_model import import_model_folder, verify_archive, verify_model_files
 
 
 CHINA_TIME = timezone(timedelta(hours=8))
@@ -90,6 +90,18 @@ class ModelInstallerTests(unittest.TestCase):
             archive.write_bytes(b"not the official model")
             with self.assertRaises(ValueError):
                 verify_archive(archive)
+
+    def test_modified_existing_model_is_not_imported(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "source"
+            destination = Path(temporary) / "destination"
+            source.mkdir()
+            (source / "tokens.txt").write_bytes(b"fake model")
+            with self.assertRaises(ValueError):
+                verify_model_files(source)
+            with self.assertRaises(ValueError):
+                import_model_folder(source, destination)
+            self.assertFalse(destination.exists())
 
 
 if __name__ == "__main__":

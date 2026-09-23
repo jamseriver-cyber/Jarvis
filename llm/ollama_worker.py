@@ -64,7 +64,7 @@ class OllamaWorker(QThread):
         return names
 
     def _ensure_server(self) -> ollama.Client:
-        client = ollama.Client(host=self.host, timeout=120.0)
+        client = ollama.Client(host=self.host, timeout=120.0, trust_env=False)
         try:
             models = self._model_names(client.list())
         except Exception:
